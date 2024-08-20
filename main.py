@@ -1,10 +1,9 @@
 from sqlalchemy import create_engine, Column, Integer, String, UUID, MetaData, Table
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy.exc import SQLAlchemyError
-from uuid import uuid4
-import csv
 import pandas as pd
-import logging
+import matplotlib.pyplot as plt
+from datetime import datetime
 
 engine = create_engine('sqlite:///user.db', echo=True)
 
@@ -62,6 +61,8 @@ session = Session()
 
 file_to_be_imported = "jira_issues_with_epic_hours.csv"
 import_table = "jira"
+FORMAT = "%Y-%m-%d"
+
 
 # Data Analysis
 # TODO Filter data as needed and plot it (generic)
@@ -104,6 +105,7 @@ def compare_csv_and_import_header():
     return columns_to_be_dropped
 
 
+# Import Data into SQL Database
 def direct_import_csv():
     """Imports the data into a sql table. If the table exists, it appends the data"""
     try:
@@ -129,4 +131,36 @@ def direct_import_csv():
     return "Import completed successfully"
 
 
-direct_import_csv()
+# Read data from SQL into Pandas Dataframe
+def get_all_issues_data():
+    df = pd.read_sql("jira", con=engine)
+    print(df)
+    return df
+
+
+# def sum_filtered_values(filtered_df, column_to_sum):
+#     column_sum = filtered_df[column_to_sum].sum()
+#     print(f"Sum of {column_to_sum}: {column_sum}")
+
+
+def get_filtered_issue_data(start_date, end_date, column_to_sum):
+    df = pd.read_sql("jira", con=engine)
+    df["Created"] = pd.to_datetime(df["Created"], format=FORMAT)
+    start_date = datetime.strptime(start_date, FORMAT)
+    end_date = datetime.strptime(end_date, FORMAT)
+
+    mask_date_range = (df["Created"] >= start_date) & (df["Created"] <= end_date)
+    filtered_df = df.loc[mask_date_range]
+    print(filtered_df)
+
+    # Sum the values in a specific column
+    column_sum = filtered_df[column_to_sum].sum()
+    print(f"Sum of {column_to_sum}: {column_sum}")
+
+
+get_filtered_issue_data(start_date="2024-01-01", end_date="2024-07-31", column_to_sum="Story Points")
+
+
+# Plot dataframe
+def plot_transactions(dataframe):
+    pass
