@@ -1,8 +1,10 @@
 from sqlalchemy import create_engine, Column, Integer, String, UUID, MetaData, Table
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.exc import SQLAlchemyError
 from uuid import uuid4
 import csv
 import pandas as pd
+import logging
 
 engine = create_engine('sqlite:///user.db', echo=True)
 
@@ -62,23 +64,30 @@ file_to_be_imported = "jira_issues_with_epic_hours.csv"
 import_table = "jira"
 
 # Data Analysis
-# TODO Read sql data into panda dataframe
 # TODO Filter data as needed and plot it (generic)
 # TODO Allow to apply single filter e.g. only issue-type "Bug"
 # TODO Allow to apply multiple filters
 # TODO Allow to sum values
 # TODO Allow to count issues
 # TODO Allow to calculate velocity
+# TODO Run the import
 
 
 # Read the CSV with Pandas
 def read_csv_header():
-    list_of_columns = list(pd.read_csv(file_to_be_imported, nrows=0).columns)
-    print(f"List of Columns: {list_of_columns}")
+    """Reads the header of the given csv file"""
+    try:
+        list_of_columns = list(pd.read_csv(file_to_be_imported, nrows=0).columns)
+        print(f"List of Columns: {list_of_columns}")
+
+    except FileNotFoundError:
+        return "Error: File not found"
+
     return list_of_columns
 
 
 def read_import_table_header():
+    """Reads the table header of the given SQL Table"""
     metadata = MetaData()
     table = Table(import_table, metadata, autoload_with=engine)
     column_names = table.columns.keys()
@@ -95,25 +104,29 @@ def compare_csv_and_import_header():
     return columns_to_be_dropped
 
 
-# Alter the Existing Table Schema to Add New Columns (optional for later)
-def adjust_database_schema():
-    """Alters the import table if columns are missing"""
-    pass
-    # Alter database (extend) it with additional columns
-
-
-# Insert the Data into the Updated Table
-# TODO Create new columns in database if needed
-# TODO Check if columns have been created successfully
-# TODO Run the import
 def direct_import_csv():
-    """Direct import into a table, no validation"""
-    # Read CSV
-    df = pd.read_csv(file_to_be_imported)
-    # Find additional columns
-    additional_columns = compare_csv_and_import_header()
-    cleaned_df = df.drop(additional_columns, axis=1)
-    cleaned_df.to_sql(name=import_table, con=engine, if_exists="append")
+    """Imports the data into a sql table. If the table exists, it appends the data"""
+    try:
+        df = pd.read_csv(file_to_be_imported)
+    except FileNotFoundError:
+        return "Error: File not found."
+    except PermissionError:
+        return "Error: Permission denied."
+    except pd.errors.EmptyDataError:
+        return "Error: File is empty"
+    except pd.errors.ParserError:
+        return "Error: Parsing error."
+    try:
+        additional_columns = compare_csv_and_import_header()
+        cleaned_df = df.drop(additional_columns, axis=1)
+    except KeyError as e:
+        return f"Error: Column issue - {str(e)}"
+    try:
+        cleaned_df.to_sql(name=import_table, con=engine, if_exists="append")
+    except SQLAlchemyError as e:
+        return f"Error: Database error - {str(e)}"
+
+    return "Import completed successfully"
 
 
 direct_import_csv()
