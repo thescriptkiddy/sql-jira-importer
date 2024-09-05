@@ -1,60 +1,13 @@
-from sqlalchemy import create_engine, Column, Integer, String, UUID, MetaData, Table
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy import create_engine, MetaData, Table, inspect
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
+from models.base import Base
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 from utilities import handle_exceptions
 
 engine = create_engine('sqlite:///user.db', echo=True)
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    firstname = Column(String(100))
-    lastname = Column(String(100))
-    email = Column(String(100), unique=True)
-
-    def __repr__(self):
-        return f"<User(id={self.id}, firstname={self.firstname}, lastname={self.lastname}, email={self.email})>"
-
-    @classmethod
-    def add(cls, firstname, lastname, email):
-        new_user = User(
-            firstname=firstname,
-            lastname=lastname,
-            email=email
-        )
-        session.add(new_user)
-        session.commit()
-
-
-class Issue(Base):
-    __tablename__ = "issues"
-    key = Column(UUID, primary_key=True)
-    summary = Column(String)
-    assignee = Column(String)
-    reporter = Column(String)
-    priority = Column(String)
-    status = Column(String)
-    resolution = Column(String)
-    created = Column(String)
-    closed = Column(String)
-    due_date = Column(String)
-    version = Column(String)
-    storypoints = Column(Integer)
-
-    def __repr__(self):
-        return (f"<Issue(key={self.key}, summary={self.summary}, assignee={self.assignee}, reporter={self.reporter}, "
-                f"priority={self.priority}, status={self.status}, resolution={self.resolution}, created={self.created},"
-                f"closed={self.closed}, due_date={self.due_date}, version={self.version}, storypoints={self.storypoints})>"
-                )
-
 
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -65,17 +18,13 @@ import_table = "jira"
 FORMAT = "%Y-%m-%d"
 
 
-# Data Analysis
-# TODO Filter data as needed and plot it (generic)
-# TODO Allow to apply single filter e.g. only issue-type "Bug"
-# TODO Allow to apply multiple filters
-# TODO Allow to sum values
-# TODO Allow to count issues
-# TODO Allow to calculate velocity
-# TODO Run the import
+def get_model_columns(model):
+    """Returns the columns of a given model"""
+    inspector = inspect(model)
+    print([column.name for column in inspector.columns])
+    return [column.name for column in inspector.columns]
 
 
-# Read the CSV with Pandas
 def read_csv_header():
     """Reads the header of the given csv file"""
     try:
@@ -93,32 +42,17 @@ def read_import_table_header():
     metadata = MetaData()
     table = Table(import_table, metadata, autoload_with=engine)
     column_names = table.columns.keys()
-    print(f"{read_import_table_header.__name__} column_names: {column_names}")
+    # print(f"{read_import_table_header.__name__} column_names: {column_names}")
     return column_names
 
-
-def create_tables():
-    """Creates missing import tables"""
-    pass
-    # Compare csv and table
-    csv_header = read_csv_header()
-    existing_columns = read_import_table_header()
-    missing_columns = []
-    # Create new tables in sql database
-
-    # Compare csv and importable to verify that new tables exist
-
-    # Return success message (and true or false)
-
-    # Run import (function exists!)
 
 # Compare the CSV Columns with the Existing Table Schema
 def compare_csv_and_import_header():
     """Compares the CSV Header with the current import table and returns
     additional columns"""
-    columns_to_be_dropped = [column for column in read_csv_header() if column not in read_import_table_header()]
-    print(f"Columns to be dropped: {columns_to_be_dropped}")
-    return columns_to_be_dropped
+    missing_columns = [column for column in read_csv_header() if column not in read_import_table_header()]
+    # print(f"Missing columns: {missing_columns}")
+    return missing_columns
 
 
 # Import Data into SQL Database
@@ -202,8 +136,5 @@ def get_filtered_issue_data(column=None, start_date=None, end_date=None, column_
     finally:
         pass
 
-
 # get_filtered_issue_data(column="Created", start_date="2024-01-01", end_date="2024-07-31", column_to_sum="Story
 # Points")
-
-
