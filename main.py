@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
+from utilities import handle_exceptions
 
 engine = create_engine('sqlite:///user.db', echo=True)
 
@@ -96,6 +97,21 @@ def read_import_table_header():
     return column_names
 
 
+def create_tables():
+    """Creates missing import tables"""
+    pass
+    # Compare csv and table
+    csv_header = read_csv_header()
+    existing_columns = read_import_table_header()
+    missing_columns = []
+    # Create new tables in sql database
+
+    # Compare csv and importable to verify that new tables exist
+
+    # Return success message (and true or false)
+
+    # Run import (function exists!)
+
 # Compare the CSV Columns with the Existing Table Schema
 def compare_csv_and_import_header():
     """Compares the CSV Header with the current import table and returns
@@ -138,29 +154,56 @@ def get_all_issues_data():
     return df
 
 
-# def sum_filtered_values(filtered_df, column_to_sum):
-#     column_sum = filtered_df[column_to_sum].sum()
-#     print(f"Sum of {column_to_sum}: {column_sum}")
+# Todo only allow to filter by existing columns
+def sum_by_filter(filtered_df, column):
+    try:
+        sum_filter = filtered_df[column].sum()
+
+    except pd.errors.EmptyDataError:
+        return "Error: File is empty"
+    except pd.errors.ParserError:
+        return "Error: Parsing error."
+
+    return f"Sum of {column}: {sum_filter}"
 
 
-def get_filtered_issue_data(start_date, end_date, column_to_sum):
+@handle_exceptions
+def filter_dataframe(column=None, start_date=None, end_date=None, **filters):
     df = pd.read_sql("jira", con=engine)
-    df["Created"] = pd.to_datetime(df["Created"], format=FORMAT)
+    df[column] = pd.to_datetime(df[column], format=FORMAT)
     start_date = datetime.strptime(start_date, FORMAT)
     end_date = datetime.strptime(end_date, FORMAT)
-
-    mask_date_range = (df["Created"] >= start_date) & (df["Created"] <= end_date)
+    mask_date_range = (df[column] >= start_date) & (df[column] <= end_date)
     filtered_df = df.loc[mask_date_range]
     print(filtered_df)
-
-    # Sum the values in a specific column
-    column_sum = filtered_df[column_to_sum].sum()
-    print(f"Sum of {column_to_sum}: {column_sum}")
+    print(sum_by_filter(filtered_df, column="Story Points"))
 
 
-get_filtered_issue_data(start_date="2024-01-01", end_date="2024-07-31", column_to_sum="Story Points")
+# filter_dataframe(column="Created", start_date="2024-01-01", end_date="2024-01-31")
 
 
-# Plot dataframe
-def plot_transactions(dataframe):
-    pass
+@handle_exceptions
+def get_filtered_issue_data(column=None, start_date=None, end_date=None, column_to_sum=None, **filters):
+    try:
+        df = pd.read_sql("jira", con=engine)
+        df[column] = pd.to_datetime(df[column], format=FORMAT)
+        start_date = datetime.strptime(start_date, FORMAT)
+        end_date = datetime.strptime(end_date, FORMAT)
+
+        # Todo Create a separate function for dynamic filtering
+        mask_date_range = (df[column] >= start_date) & (df[column] <= end_date)
+        # mask_date_range = (df["Created"] >= start_date) & (df["Created"] <= end_date) & (df["Resolution"] == "Fixed")
+        filtered_df = df.loc[mask_date_range]
+        print(filtered_df)
+
+        # Sum the values in a specific column
+        column_sum = filtered_df[column_to_sum].sum()
+        print(f"Sum of {column_to_sum}: {column_sum}")
+    finally:
+        pass
+
+
+# get_filtered_issue_data(column="Created", start_date="2024-01-01", end_date="2024-07-31", column_to_sum="Story
+# Points")
+
+
